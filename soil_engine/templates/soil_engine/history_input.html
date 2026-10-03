@@ -1,0 +1,118 @@
+{% extends 'soil_engine/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1 class="page-title">📜 Fertilization History</h1>
+        <p class="page-description">Add past fertilizer applications (optional). This helps the engine account for residual nutrients.</p>
+        <div class="progress-bar">
+            <div class="progress-step done">
+                <span class="step-num">✓</span>
+                <span class="step-text">Soil Data</span>
+            </div>
+            <div class="progress-connector done"></div>
+            <div class="progress-step done">
+                <span class="step-num">✓</span>
+                <span class="step-text">Weather</span>
+            </div>
+            <div class="progress-connector done"></div>
+            <div class="progress-step active">
+                <span class="step-num">3</span>
+                <span class="step-text">History</span>
+            </div>
+            <div class="progress-connector"></div>
+            <div class="progress-step">
+                <span class="step-num">4</span>
+                <span class="step-text">Results</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Existing History Records -->
+    {% if existing_history %}
+    <div class="summary-card">
+        <h3>📋 Existing Records</h3>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Crop</th>
+                        <th>Fertilizer</th>
+                        <th>Quantity (kg/ha)</th>
+                        <th>Stage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in existing_history %}
+                    <tr>
+                        <td>{{ h.application_date }}</td>
+                        <td>{{ h.crop_grown }}</td>
+                        <td>{{ h.get_fertilizer_type_display }}</td>
+                        <td>{{ h.quantity_kg_per_ha }}</td>
+                        <td>{{ h.get_crop_stage_display }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="post" class="soil-form" id="history-form">
+        {% csrf_token %}
+
+        <div class="form-section">
+            <h2 class="form-section-title">
+                <span class="section-icon">💊</span> Add Fertilizer Application Record
+            </h2>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.application_date.id_for_label }}">Application Date</label>
+                    {{ form.application_date }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.crop_grown.id_for_label }}">Crop Grown</label>
+                    {{ form.crop_grown }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.fertilizer_type.id_for_label }}">Fertilizer Type</label>
+                    {{ form.fertilizer_type }}
+                </div>
+            </div>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.quantity_kg_per_ha.id_for_label }}">Quantity (kg/ha)</label>
+                    {{ form.quantity_kg_per_ha }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.application_method.id_for_label }}">Application Method</label>
+                    {{ form.application_method }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.crop_stage.id_for_label }}">Crop Stage</label>
+                    {{ form.crop_stage }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="{{ form.notes.id_for_label }}">Notes</label>
+                {{ form.notes }}
+            </div>
+        </div>
+
+        <div class="form-actions form-actions-multi">
+            <button type="submit" name="add_another" class="btn btn-secondary btn-lg" id="add-another-btn">
+                ➕ Add Another Record
+            </button>
+            <button type="submit" class="btn btn-primary btn-lg" id="proceed-results-btn">
+                Run Soil Engine →
+            </button>
+            <button type="submit" name="skip" class="btn btn-outline btn-lg" id="skip-history-btn">
+                Skip History →
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

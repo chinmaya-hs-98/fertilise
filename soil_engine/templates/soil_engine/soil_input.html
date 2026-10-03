@@ -1,0 +1,269 @@
+{% extends 'soil_engine/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1 class="page-title">🧪 Soil Test Data & Regional Geo-API Input</h1>
+        <p class="page-description">Enter your lab soil test results, or use our free regional API to auto-fetch soil data for your Taluk or Gram Panchayat.</p>
+        <div class="progress-bar">
+            <div class="progress-step active">
+                <span class="step-num">1</span>
+                <span class="step-text">Soil &amp; Crop</span>
+            </div>
+            <div class="progress-connector"></div>
+            <div class="progress-step">
+                <span class="step-num">2</span>
+                <span class="step-text">Weather</span>
+            </div>
+            <div class="progress-connector"></div>
+            <div class="progress-step">
+                <span class="step-num">3</span>
+                <span class="step-text">History</span>
+            </div>
+            <div class="progress-connector"></div>
+            <div class="progress-step">
+                <span class="step-num">4</span>
+                <span class="step-text">Results</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Free Regional Geo-API Fallback Banner -->
+    <div class="geo-api-card">
+        <div class="geo-api-header">
+            <div class="geo-api-title">
+                <span class="geo-icon">📡</span>
+                <div>
+                    <h3>No Soil Test Report? Auto-Fetch by Geography</h3>
+                    <p>Fetch regional soil parameters (ISRIC SoilGrids &amp; ICAR Taluk Health Card API) for any Taluk, Gram Panchayat, or District</p>
+                </div>
+            </div>
+            <span class="badge badge-free-api">Free Open API</span>
+        </div>
+        <div class="geo-api-controls">
+            <div class="geo-input-group">
+                <input type="text" id="geo-search-input" class="form-input geo-input" placeholder="Type Taluk / Gram Panchayat / District (e.g. Dharwad, Thirthahalli, Nashik, Guntur, Wayanad)..." />
+                <button type="button" class="btn btn-geo-fetch" id="btn-fetch-geo">
+                    <span class="btn-icon">⚡</span> Auto-Fetch Soil Data
+                </button>
+            </div>
+            <div class="geo-quick-tags">
+                <span class="quick-label">Popular Taluks/Regions:</span>
+                <button type="button" class="geo-tag" data-place="Dharwad, Karnataka">Dharwad</button>
+                <button type="button" class="geo-tag" data-place="Shivamogga, Karnataka">Shimoga</button>
+                <button type="button" class="geo-tag" data-place="Chikkamagaluru, Karnataka">Chikmagalur</button>
+                <button type="button" class="geo-tag" data-place="Puttur, Dakshina Kannada">Dakshina Kannada</button>
+                <button type="button" class="geo-tag" data-place="Nashik, Maharashtra">Nashik</button>
+                <button type="button" class="geo-tag" data-place="Guntur, Andhra Pradesh">Guntur</button>
+                <button type="button" class="geo-tag" data-place="Wayanad, Kerala">Wayanad</button>
+                <button type="button" class="geo-tag" data-place="Ludhiana, Punjab">Ludhiana</button>
+            </div>
+            <div id="geo-status-box" class="geo-status-box" style="display: none;">
+                <div class="geo-status-indicator"></div>
+                <div class="geo-status-content">
+                    <strong id="geo-status-title">Fetching regional data...</strong>
+                    <p id="geo-status-desc"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" class="soil-form" id="soil-test-form">
+        {% csrf_token %}
+        {{ form.source_details }}
+
+        <!-- Target Crop & Age / Growth Stage Section -->
+        <div class="form-section highlight-section">
+            <h2 class="form-section-title">
+                <span class="section-icon">🌾</span> Crop Selection &amp; Crop Age / Stage
+            </h2>
+            <p class="section-subtitle">Specify the crop and its age (in years for plantations like Arecanut/Coconut/Coffee) or growth stage (for field crops).</p>
+            
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.selected_crop.id_for_label }}">
+                        Target Crop (Optional)
+                        <span class="label-hint">Choose crop to tailor specific fertilizer schedule</span>
+                    </label>
+                    {{ form.selected_crop }}
+                </div>
+
+                <!-- Plantation Age (Years) Field -->
+                <div class="form-group" id="group-plantation-age">
+                    <label for="{{ form.crop_age_years.id_for_label }}">
+                        Plantation Age (in Years)
+                        <span class="label-hint">For Arecanut, Coconut, Coffee, Rubber, Mango, etc.</span>
+                    </label>
+                    {{ form.crop_age_years }}
+                    <span class="input-annotation" id="age-annotation">Year 3: ~85% of adult bearing dose</span>
+                </div>
+
+                <!-- Seasonal Growth Stage Field -->
+                <div class="form-group" id="group-growth-stage">
+                    <label for="{{ form.growth_stage.id_for_label }}">
+                        Current Growth Stage
+                        <span class="label-hint">For Seasonal / Field Crops</span>
+                    </label>
+                    {{ form.growth_stage }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Identification Section -->
+        <div class="form-section">
+            <h2 class="form-section-title">
+                <span class="section-icon">📍</span> Farm &amp; Location Identification
+            </h2>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.sample_id.id_for_label }}">Sample / Reference ID</label>
+                    {{ form.sample_id }}
+                    {% if form.sample_id.errors %}<span class="form-error">{{ form.sample_id.errors.0 }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.farm_name.id_for_label }}">Farm Name</label>
+                    {{ form.farm_name }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.location.id_for_label }}">Location (Village / Taluk / District)</label>
+                    {{ form.location }}
+                    {% if form.location.errors %}<span class="form-error">{{ form.location.errors.0 }}</span>{% endif %}
+                </div>
+            </div>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.area_hectares.id_for_label }}">Farm Area (hectares)</label>
+                    {{ form.area_hectares }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.data_source.id_for_label }}">Data Source</label>
+                    {{ form.data_source }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.soil_type.id_for_label }}">Soil Classification</label>
+                    {{ form.soil_type }}
+                </div>
+            </div>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.texture.id_for_label }}">Soil Texture</label>
+                    {{ form.texture }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Primary Nutrients -->
+        <div class="form-section">
+            <h2 class="form-section-title">
+                <span class="section-icon">🧬</span> Primary Nutrients (N-P-K)
+            </h2>
+            <div class="nutrient-guide">
+                <div class="guide-item low">Low = Deficient</div>
+                <div class="guide-item medium">Medium = Adequate</div>
+                <div class="guide-item high">High = Sufficient</div>
+            </div>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.nitrogen.id_for_label }}">
+                        Available Nitrogen (kg/ha)
+                        <span class="label-hint">Low &lt;280 | Med 280-560 | High &gt;560</span>
+                    </label>
+                    {{ form.nitrogen }}
+                    {% if form.nitrogen.errors %}<span class="form-error">{{ form.nitrogen.errors.0 }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.phosphorus.id_for_label }}">
+                        Available Phosphorus P₂O₅ (kg/ha)
+                        <span class="label-hint">Low &lt;10 | Med 10-24.6 | High &gt;24.6</span>
+                    </label>
+                    {{ form.phosphorus }}
+                    {% if form.phosphorus.errors %}<span class="form-error">{{ form.phosphorus.errors.0 }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.potassium.id_for_label }}">
+                        Available Potassium K₂O (kg/ha)
+                        <span class="label-hint">Low &lt;108 | Med 108-280 | High &gt;280</span>
+                    </label>
+                    {{ form.potassium }}
+                    {% if form.potassium.errors %}<span class="form-error">{{ form.potassium.errors.0 }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Soil Health -->
+        <div class="form-section">
+            <h2 class="form-section-title">
+                <span class="section-icon">🌡️</span> Soil Health Indicators
+            </h2>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.ph.id_for_label }}">
+                        Soil pH (0-14 scale)
+                        <span class="label-hint">Acidic &lt;6.5 | Neutral 6.5-7.5 | Alkaline &gt;7.5</span>
+                    </label>
+                    {{ form.ph }}
+                    {% if form.ph.errors %}<span class="form-error">{{ form.ph.errors.0 }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.organic_carbon.id_for_label }}">
+                        Organic Carbon (%)
+                        <span class="label-hint">Low &lt;0.5 | Med 0.5-0.75 | High &gt;0.75</span>
+                    </label>
+                    {{ form.organic_carbon }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.electrical_conductivity.id_for_label }}">
+                        EC (dS/m)
+                        <span class="label-hint">Normal &lt;1.0 | Saline &gt;1.0</span>
+                    </label>
+                    {{ form.electrical_conductivity }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Secondary & Micronutrients -->
+        <div class="form-section">
+            <h2 class="form-section-title">
+                <span class="section-icon">🔬</span> Micronutrients &amp; Secondary (ppm)
+            </h2>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.sulphur.id_for_label }}">Sulphur (S)</label>
+                    {{ form.sulphur }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.zinc.id_for_label }}">Zinc (Zn) — Deficient &lt;0.6 ppm</label>
+                    {{ form.zinc }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.iron.id_for_label }}">Iron (Fe) — Deficient &lt;4.5 ppm</label>
+                    {{ form.iron }}
+                </div>
+            </div>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.manganese.id_for_label }}">Manganese (Mn) — Deficient &lt;2.0</label>
+                    {{ form.manganese }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.copper.id_for_label }}">Copper (Cu) — Deficient &lt;0.2</label>
+                    {{ form.copper }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.boron.id_for_label }}">Boron (B) — Deficient &lt;0.5 ppm</label>
+                    {{ form.boron }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg" id="submit-soil-test">
+                Run Soil Engine Analysis →
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

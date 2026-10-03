@@ -1,0 +1,125 @@
+{% extends 'soil_engine/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1 class="page-title">🧪 {{ soil_test.sample_id }}</h1>
+        <p class="page-description">{{ soil_test.farm_name }} — {{ soil_test.location }} ({{ soil_test.area_hectares }} ha)</p>
+        <div class="page-actions">
+            <a href="{% url 'soil_engine:weather_input' soil_test.id %}" class="btn btn-primary" id="full-analysis-btn">🔄 Run Full Analysis</a>
+            <a href="{% url 'soil_engine:analyze' soil_test.id %}" class="btn btn-secondary" id="quick-analysis-btn">⚡ Quick Analyze</a>
+        </div>
+    </div>
+
+    <!-- Soil Data -->
+    <section class="detail-section">
+        <h2 class="section-title">Soil Parameters</h2>
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="detail-label">Soil Type</span>
+                <span class="detail-value">{{ soil_test.get_soil_type_display }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Texture</span>
+                <span class="detail-value">{{ soil_test.get_texture_display }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">pH</span>
+                <span class="detail-value badge badge-{{ soil_test.get_ph_status }}">{{ soil_test.ph }} ({{ soil_test.get_ph_status }})</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Nitrogen (N)</span>
+                <span class="detail-value nutrient-value {{ soil_test.get_n_status }}">{{ soil_test.nitrogen }} kg/ha ({{ soil_test.get_n_status }})</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Phosphorus (P₂O₅)</span>
+                <span class="detail-value nutrient-value {{ soil_test.get_p_status }}">{{ soil_test.phosphorus }} kg/ha ({{ soil_test.get_p_status }})</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Potassium (K₂O)</span>
+                <span class="detail-value nutrient-value {{ soil_test.get_k_status }}">{{ soil_test.potassium }} kg/ha ({{ soil_test.get_k_status }})</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Organic Carbon</span>
+                <span class="detail-value nutrient-value {{ soil_test.get_oc_status }}">{{ soil_test.organic_carbon }}% ({{ soil_test.get_oc_status }})</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">EC</span>
+                <span class="detail-value">{{ soil_test.electrical_conductivity }} dS/m</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Zinc</span>
+                <span class="detail-value">{{ soil_test.zinc }} ppm {% if soil_test.zinc < 0.6 %}⚠️{% endif %}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Boron</span>
+                <span class="detail-value">{{ soil_test.boron }} ppm {% if soil_test.boron < 0.5 %}⚠️{% endif %}</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Past Suggestions -->
+    {% if suggestions %}
+    <section class="detail-section">
+        <h2 class="section-title">🌾 Last Crop Suggestions</h2>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Crop</th>
+                        <th>Score</th>
+                        <th>Yield (t/ha)</th>
+                        <th>Season</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in suggestions %}
+                    <tr>
+                        <td>{{ s.crop_name }}</td>
+                        <td><span class="badge badge-score">{{ s.suitability_score }}%</span></td>
+                        <td>{{ s.expected_yield_tonnes_per_ha }}</td>
+                        <td>{{ s.season }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Fertilization History -->
+    {% if history %}
+    <section class="detail-section">
+        <h2 class="section-title">📜 Fertilization History</h2>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Crop</th>
+                        <th>Fertilizer</th>
+                        <th>Quantity (kg/ha)</th>
+                        <th>Method</th>
+                        <th>Stage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in history %}
+                    <tr>
+                        <td>{{ h.application_date }}</td>
+                        <td>{{ h.crop_grown }}</td>
+                        <td>{{ h.get_fertilizer_type_display }}</td>
+                        <td>{{ h.quantity_kg_per_ha }}</td>
+                        <td>{{ h.get_application_method_display }}</td>
+                        <td>{{ h.get_crop_stage_display }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

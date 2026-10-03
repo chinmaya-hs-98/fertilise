@@ -1,0 +1,85 @@
+{% extends 'soil_engine/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1 class="page-title">📋 All Soil Tests &amp; Geo-Intelligence Records</h1>
+        <p class="page-description">View and manage all laboratory tests and regional API soil data</p>
+        <div class="page-actions">
+            <a href="{% url 'soil_engine:soil_input' %}" class="btn btn-primary" id="new-test-btn">🧪 New Soil / Geo Analysis</a>
+        </div>
+    </div>
+
+    {% if tests %}
+    <div class="table-container">
+        <table class="data-table" id="tests-table">
+            <thead>
+                <tr>
+                    <th>Sample ID</th>
+                    <th>Source</th>
+                    <th>Location / Taluk</th>
+                    <th>Target Crop &amp; Age/Stage</th>
+                    <th>Soil Type</th>
+                    <th>Area</th>
+                    <th>pH</th>
+                    <th>N-P-K (kg/ha)</th>
+                    <th>OC (%)</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for test in tests %}
+                <tr>
+                    <td class="sample-id font-bold">{{ test.sample_id }}</td>
+                    <td>
+                        <span class="source-tag">
+                            {% if test.data_source == 'regional_api' or test.data_source == 'soilgrids' or test.data_source == 'icar_taluk_card' %}
+                            📡 Geo-API
+                            {% else %}
+                            🧪 Lab Test
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>{{ test.location }}</td>
+                    <td>
+                        {% if test.selected_crop %}
+                            <strong>{{ test.selected_crop }}</strong>
+                            {% if test.crop_age_years %}
+                                <br><small class="text-muted">Yr {{ test.crop_age_years }}</small>
+                            {% elif test.growth_stage %}
+                                <br><small class="text-muted">{{ test.growth_stage|capfirst }}</small>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">Auto-Suggest</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge badge-soil">{{ test.get_soil_type_display }}</span></td>
+                    <td>{{ test.area_hectares }} ha</td>
+                    <td><span class="badge badge-{{ test.get_ph_status }}">{{ test.ph }}</span></td>
+                    <td>
+                        <span class="nutrient-value {{ test.get_n_status }}">{{ test.nitrogen|floatformat:0 }}</span> -
+                        <span class="nutrient-value {{ test.get_p_status }}">{{ test.phosphorus|floatformat:0 }}</span> -
+                        <span class="nutrient-value {{ test.get_k_status }}">{{ test.potassium|floatformat:0 }}</span>
+                    </td>
+                    <td><span class="nutrient-value {{ test.get_oc_status }}">{{ test.organic_carbon }}</span></td>
+                    <td class="actions-cell">
+                        <a href="{% url 'soil_engine:soil_test_detail' test.id %}" class="btn btn-sm btn-outline" id="detail-{{ test.id }}">View</a>
+                        <a href="{% url 'soil_engine:analyze' test.id %}" class="btn btn-sm btn-primary" id="quick-{{ test.id }}">Analyze</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🧪</div>
+        <h3>No soil tests yet</h3>
+        <p>Start by creating your first soil test analysis or fetching data via Geo-API.</p>
+        <a href="{% url 'soil_engine:soil_input' %}" class="btn btn-primary btn-lg">Run Analysis</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

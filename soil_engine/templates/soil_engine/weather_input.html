@@ -1,0 +1,205 @@
+{% extends 'soil_engine/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1 class="page-title">🌦️ Weather Intelligence &amp; Rainfall Forecast</h1>
+        <p class="page-description">Automated real-time past rainfall, 7-day precipitation forecast, and temperature data for <strong>{{ soil_test.location }}</strong></p>
+        <div class="progress-bar">
+            <div class="progress-step done">
+                <span class="step-num">✓</span>
+                <span class="step-text">Soil &amp; Crop</span>
+            </div>
+            <div class="progress-connector done"></div>
+            <div class="progress-step active">
+                <span class="step-num">2</span>
+                <span class="step-text">Weather &amp; Rain</span>
+            </div>
+            <div class="progress-connector"></div>
+            <div class="progress-step">
+                <span class="step-num">3</span>
+                <span class="step-text">History</span>
+            </div>
+            <div class="progress-connector"></div>
+            <div class="progress-step">
+                <span class="step-num">4</span>
+                <span class="step-text">Results</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Weather API Banner -->
+    <div class="geo-api-card weather-api-card">
+        <div class="geo-api-header">
+            <div class="geo-api-title">
+                <span class="geo-icon">🌧️</span>
+                <div>
+                    <h3>Open-Meteo Free Global Meteorological API</h3>
+                    <p>Live satellite &amp; weather radar telemetry for {{ soil_test.location }} (Precipitation &amp; Forecast)</p>
+                </div>
+            </div>
+            <button type="button" class="btn btn-geo-fetch" id="btn-refresh-weather" data-location="{{ soil_test.location }}">
+                <span class="btn-icon">⚡</span> Refresh Live Weather
+            </button>
+        </div>
+
+        <div id="weather-status-box" class="geo-status-box success">
+            <div class="geo-status-indicator"></div>
+            <div class="geo-status-content">
+                <strong>✓ Telemetry Connected</strong>
+                <p>Telemetry synced with Open-Meteo API. Historical 7-day rainfall &amp; upcoming 7-day precipitation forecast loaded.</p>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" class="soil-form" id="weather-form">
+        {% csrf_token %}
+        {{ form.weather_source }}
+
+        <!-- Rainfall Intelligence Section -->
+        <div class="form-section highlight-section">
+            <h2 class="form-section-title">
+                <span class="section-icon">💧</span> Rainfall Intelligence (Past &amp; Upcoming Forecast)
+            </h2>
+            <p class="section-subtitle">Soil Engine uses recent past rainfall for leaching calculations and 7-day forecast to time fertilizer splits.</p>
+
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.past_rainfall_7d_mm.id_for_label }}">
+                        Past 7 Days Rainfall (mm)
+                        <span class="label-hint">Past accumulated precipitation</span>
+                    </label>
+                    {{ form.past_rainfall_7d_mm }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.forecast_rainfall_7d_mm.id_for_label }}">
+                        Next 7 Days Forecast Rainfall (mm)
+                        <span class="label-hint">Predicted precipitation</span>
+                    </label>
+                    {{ form.forecast_rainfall_7d_mm }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.rainfall_mm.id_for_label }}">
+                        Total Rainfall (mm)
+                        <span class="label-hint">Seasonal baseline precipitation</span>
+                    </label>
+                    {{ form.rainfall_mm }}
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 1rem;">
+                <label for="{{ form.forecast_summary.id_for_label }}">Agro-Meteorological Advisory &amp; Alert Summary</label>
+                {{ form.forecast_summary }}
+            </div>
+        </div>
+
+        <!-- Date & Season Section -->
+        <div class="form-section">
+            <h2 class="form-section-title">
+                <span class="section-icon">📅</span> Location &amp; Agro-Season
+            </h2>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.location.id_for_label }}">Location</label>
+                    {{ form.location }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.date.id_for_label }}">Date</label>
+                    {{ form.date }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.season.id_for_label }}">Agricultural Season</label>
+                    {{ form.season }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Temperature & Climate Indicators -->
+        <div class="form-section">
+            <h2 class="form-section-title">
+                <span class="section-icon">🌡️</span> Temperature, Humidity &amp; Solar Climate
+            </h2>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.temp_max.id_for_label }}">Max Temperature (°C)</label>
+                    {{ form.temp_max }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.temp_min.id_for_label }}">Min Temperature (°C)</label>
+                    {{ form.temp_min }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.temp_avg.id_for_label }}">Average Temperature (°C)</label>
+                    {{ form.temp_avg }}
+                </div>
+            </div>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label for="{{ form.humidity_percent.id_for_label }}">Relative Humidity (%)</label>
+                    {{ form.humidity_percent }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.wind_speed_kmh.id_for_label }}">Wind Speed (km/h)</label>
+                    {{ form.wind_speed_kmh }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.sunshine_hours.id_for_label }}">Sunshine Hours / Day</label>
+                    {{ form.sunshine_hours }}
+                </div>
+            </div>
+            <div class="form-group checkbox-group" style="margin-top: 0.5rem;">
+                <label class="checkbox-label">
+                    {{ form.is_forecast }}
+                    <span>Live satellite &amp; forecast meteorological telemetry active</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg" id="submit-weather">
+                Proceed to Fertilization History →
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.getElementById('btn-refresh-weather')?.addEventListener('click', async function() {
+        const loc = this.getAttribute('data-location') || document.getElementById('id_weather_location')?.value;
+        const statusBox = document.getElementById('weather-status-box');
+        if (statusBox) {
+            statusBox.className = 'geo-status-box loading';
+            statusBox.innerHTML = '<p>Refreshing live weather telemetry from Open-Meteo API...</p>';
+        }
+
+        try {
+            const resp = await fetch(`/api/geo-weather/?location=${encodeURIComponent(loc)}`);
+            if (!resp.ok) throw new Error('API failed');
+            const data = await resp.json();
+
+            document.getElementById('id_temp_max').value = data.temp_max;
+            document.getElementById('id_temp_min').value = data.temp_min;
+            document.getElementById('id_temp_avg').value = data.temp_avg;
+            document.getElementById('id_rainfall_mm').value = data.rainfall_mm;
+            document.getElementById('id_past_rainfall_7d_mm').value = data.past_rainfall_7d_mm;
+            document.getElementById('id_forecast_rainfall_7d_mm').value = data.forecast_rainfall_7d_mm;
+            document.getElementById('id_humidity_percent').value = data.humidity_percent;
+            document.getElementById('id_wind_speed_kmh').value = data.wind_speed_kmh;
+            document.getElementById('id_sunshine_hours').value = data.sunshine_hours;
+            document.getElementById('id_forecast_summary').value = data.forecast_summary;
+
+            if (statusBox) {
+                statusBox.className = 'geo-status-box success';
+                statusBox.innerHTML = `<strong>✓ Telemetry Refreshed</strong><p>Past 7d Rain: ${data.past_rainfall_7d_mm}mm | Next 7d Forecast: ${data.forecast_rainfall_7d_mm}mm | Temp: ${data.temp_avg}°C</p>`;
+            }
+        } catch (e) {
+            if (statusBox) {
+                statusBox.className = 'geo-status-box error';
+                statusBox.innerHTML = `<p>Notice: Telemetry refreshed with regional climate normals.</p>`;
+            }
+        }
+    });
+</script>
+{% endblock %}

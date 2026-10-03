@@ -1,0 +1,508 @@
+{% extends 'soil_engine/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="results-page">
+    <div class="page-header">
+        <div class="header-badges">
+            {% if soil_test.data_source == 'regional_api' or soil_test.data_source == 'soilgrids' or soil_test.data_source == 'icar_taluk_card' %}
+            <span class="badge badge-geo-source">📡 Regional Free Geo-API Fallback (ICAR / SoilGrids)</span>
+            {% else %}
+            <span class="badge badge-lab-source">🧪 Verified Lab Test Report</span>
+            {% endif %}
+            <span class="badge badge-season">🗓️ Season: {{ weather.get_season_display }}</span>
+        </div>
+        <h1 class="page-title">⚙️ Soil Engine Intelligence Results</h1>
+        <p class="page-description">
+            Agronomic prescription for <strong>{{ soil_test.sample_id }}</strong> — {{ soil_test.location }}
+            ({{ soil_test.area_hectares }} ha, {{ soil_test.get_soil_type_display }} soil)
+            {% if soil_test.source_details %}
+            <br><small class="text-muted">Data Source Attribution: {{ soil_test.source_details }}</small>
+            {% endif %}
+        </p>
+        <div class="progress-bar">
+            <div class="progress-step done"><span class="step-num">✓</span><span class="step-text">Soil &amp; Geo</span></div>
+            <div class="progress-connector done"></div>
+            <div class="progress-step done"><span class="step-num">✓</span><span class="step-text">Weather</span></div>
+            <div class="progress-connector done"></div>
+            <div class="progress-step done"><span class="step-num">✓</span><span class="step-text">History</span></div>
+            <div class="progress-connector done"></div>
+            <div class="progress-step active"><span class="step-num">4</span><span class="step-text">Results &amp; Prescription</span></div>
+        </div>
+    </div>
+
+    <!-- Interactive Crop & Age / Growth Stage Simulator -->
+    <section class="result-section simulator-section" id="crop-simulator-section">
+        <div class="simulator-card">
+            <div class="simulator-header">
+                <div>
+                    <h3 class="simulator-title">🎯 Crop &amp; Age / Growth Stage Customizer</h3>
+                    <p class="simulator-desc">Fine-tune recommendations for your exact plantation age or seasonal crop growth stage.</p>
+                </div>
+                <span class="simulator-badge">
+                    {% if is_plantation %}
+                        🌴 Plantation Crop (Age: {{ crop_age_years|default:3 }} Years)
+                    {% else %}
+                        🌾 Seasonal Crop (Stage: {{ growth_stage|capfirst }})
+                    {% endif %}
+                </span>
+            </div>
+
+            <form method="get" class="simulator-form" id="crop-adjuster-form">
+                <div class="sim-grid">
+                    <div class="sim-group">
+                        <label for="sim-crop-select">Selected Crop</label>
+                        <select name="crop" id="sim-crop-select" class="form-select" onchange="toggleSimInputs(this.value)">
+                            {% for cname, cdata in all_crops.items %}
+                            <option value="{{ cname }}" {% if cname == target_crop %}selected{% endif %} data-type="{{ cdata.crop_type }}">
+                                {{ cname }} ({{ cdata.category }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Plantation Age in Years Input -->
+                    <div class="sim-group" id="sim-age-group" style="{% if not is_plantation %}display: none;{% endif %}">
+                        <label for="sim-age-input">
+                            Plantation Age (in Years)
+                            <span class="label-hint" id="sim-age-hint">
+                                {% if crop_age_years %}Year {{ crop_age_years|floatformat:1 }}{% else %}Mature Bearing{% endif %}
+                            </span>
+                        </label>
+                        <div class="age-stepper">
+                            <input type="number" name="age" id="sim-age-input" class="form-input" min="0.5" max="30" step="0.5" value="{{ crop_age_years|default:3.0 }}" />
+                            <span class="stepper-unit">Years</span>
+                        </div>
+                    </div>
+
+                    <!-- Seasonal Growth Stage Select -->
+                    <div class="sim-group" id="sim-stage-group" style="{% if is_plantation %}display: none;{% endif %}">
+                        <label for="sim-stage-select">Current Growth Stage</label>
+                        <select name="stage" id="sim-stage-select" class="form-select">
+                            <option value="basal" {% if growth_stage == 'basal' %}selected{% endif %}>Basal (Sowing / Planting / Transplanting)</option>
+                            <option value="vegetative" {% if growth_stage == 'vegetative' %}selected{% endif %}>Vegetative (Tillering / Active Branching)</option>
+                            <option value="flowering" {% if growth_stage == 'flowering' %}selected{% endif %}>Flowering (Panicle Initiation / Budding)</option>
+                            <option value="fruiting" {% if growth_stage == 'fruiting' %}selected{% endif %}>Fruiting (Grain Filling / Tuber Bulking)</option>
+                            <option value="maturity" {% if growth_stage == 'maturity' %}selected{% endif %}>Maturity (Pre-Harvest)</option>
+                        </select>
+                    </div>
+
+                    <div class="sim-group sim-actions">
+                        <button type="submit" class="btn btn-primary btn-sim-update">
+                            <span class="btn-icon">⚡</span> Recalculate Prescription
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- Input Summary Section -->
+    <section class="result-section" id="inputs-section">
+        <h2 class="section-title">📥 Input Summary &amp; Soil Health Status</h2>
+        <div class="summary-cards-grid">
+            <!-- Soil Test Card -->
+            <div class="result-card soil-card">
+                <div class="card-header-flex">
+                    <h3 class="card-title">🧪 Soil Parameters</h3>
+                    <span class="source-tag {{ soil_test.data_source }}">
+                        {{ soil_test.get_data_source_display }}
+                    </span>
+                </div>
+                <div class="soil-gauges">
+                    <div class="gauge-group">
+                        <div class="gauge-item">
+                            <div class="gauge-circle {{ soil_test.get_n_status }}">
+                                <span class="gauge-val">{{ soil_test.nitrogen|floatformat:1 }}</span>
+                            </div>
+                            <span class="gauge-label">N (kg/ha)</span>
+                            <span class="gauge-status {{ soil_test.get_n_status }}">{{ soil_test.get_n_status|upper }}</span>
+                        </div>
+                        <div class="gauge-item">
+                            <div class="gauge-circle {{ soil_test.get_p_status }}">
+                                <span class="gauge-val">{{ soil_test.phosphorus|floatformat:1 }}</span>
+                            </div>
+                            <span class="gauge-label">P₂O₅ (kg/ha)</span>
+                            <span class="gauge-status {{ soil_test.get_p_status }}">{{ soil_test.get_p_status|upper }}</span>
+                        </div>
+                        <div class="gauge-item">
+                            <div class="gauge-circle {{ soil_test.get_k_status }}">
+                                <span class="gauge-val">{{ soil_test.potassium|floatformat:1 }}</span>
+                            </div>
+                            <span class="gauge-label">K₂O (kg/ha)</span>
+                            <span class="gauge-status {{ soil_test.get_k_status }}">{{ soil_test.get_k_status|upper }}</span>
+                        </div>
+                        <div class="gauge-item">
+                            <div class="gauge-circle {{ soil_test.get_ph_status }}">
+                                <span class="gauge-val">{{ soil_test.ph|floatformat:1 }}</span>
+                            </div>
+                            <span class="gauge-label">pH</span>
+                            <span class="gauge-status {{ soil_test.get_ph_status }}">{{ soil_test.get_ph_status|upper }}</span>
+                        </div>
+                        <div class="gauge-item">
+                            <div class="gauge-circle {{ soil_test.get_oc_status }}">
+                                <span class="gauge-val">{{ soil_test.organic_carbon|floatformat:2 }}%</span>
+                            </div>
+                            <span class="gauge-label">OC</span>
+                            <span class="gauge-status {{ soil_test.get_oc_status }}">{{ soil_test.get_oc_status|upper }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weather & Rainfall Forecast Card -->
+            <div class="result-card weather-card">
+                <div class="card-header-flex">
+                    <h3 class="card-title">🌦️ Agro-Climate &amp; Rainfall Forecast</h3>
+                    <span class="source-tag badge-geo-source">{{ weather.weather_source|default:"Open-Meteo API" }}</span>
+                </div>
+                <div class="weather-grid">
+                    <div class="weather-item">
+                        <span class="weather-icon">🌧️</span>
+                        <span class="weather-val">{{ weather.past_rainfall_7d_mm|default:0 }}mm</span>
+                        <span class="weather-label">Past 7d Rain</span>
+                    </div>
+                    <div class="weather-item highlight-weather">
+                        <span class="weather-icon">☔</span>
+                        <span class="weather-val font-bold">{{ weather.forecast_rainfall_7d_mm|default:weather.rainfall_mm }}mm</span>
+                        <span class="weather-label">Next 7d Forecast</span>
+                    </div>
+                    <div class="weather-item">
+                        <span class="weather-icon">🌡️</span>
+                        <span class="weather-val">{{ weather.temp_avg }}°C</span>
+                        <span class="weather-label">Avg Temp</span>
+                    </div>
+                    <div class="weather-item">
+                        <span class="weather-icon">💧</span>
+                        <span class="weather-val">{{ weather.humidity_percent }}%</span>
+                        <span class="weather-label">Humidity</span>
+                    </div>
+                </div>
+                {% if weather.forecast_summary %}
+                <div class="weather-advisory-banner">
+                    <span class="advisory-icon">📡</span>
+                    <span class="advisory-text">{{ weather.forecast_summary }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Fertilization Plan Section -->
+    <section class="result-section" id="fert-section">
+        <div class="section-title-wrap">
+            <div>
+                <h2 class="section-title">💊 Next Fertilization Cycle Prescription — {{ target_crop }}</h2>
+                <p class="section-subtitle">
+                    {% if is_plantation %}
+                        Age-adjusted dosage for <strong>{{ crop_age_years|default:3 }} Year Plantation</strong> (showing per-palm / per-tree and per-hectare doses)
+                    {% else %}
+                        Stage-targeted split application schedule for <strong>{{ growth_stage|default:'basal'|capfirst }} stage</strong> onwards
+                    {% endif %}
+                </p>
+            </div>
+            <span class="badge badge-target-crop">Active Target Crop</span>
+        </div>
+
+        <!-- Fertilization Summary -->
+        <div class="fert-summary">
+            <div class="fert-summary-item">
+                <span class="fert-summary-label">Total N Delivered</span>
+                <span class="fert-summary-value">{{ total_n|floatformat:1 }} kg/ha</span>
+            </div>
+            <div class="fert-summary-item">
+                <span class="fert-summary-label">Total P₂O₅ Delivered</span>
+                <span class="fert-summary-value">{{ total_p|floatformat:1 }} kg/ha</span>
+            </div>
+            <div class="fert-summary-item">
+                <span class="fert-summary-label">Total K₂O Delivered</span>
+                <span class="fert-summary-value">{{ total_k|floatformat:1 }} kg/ha</span>
+            </div>
+            <div class="fert-summary-item cost">
+                <span class="fert-summary-label">Est. Total Cost</span>
+                <span class="fert-summary-value">₹{{ total_fert_cost|floatformat:0 }} /ha</span>
+            </div>
+        </div>
+
+        <!-- Schedule Timeline & Table -->
+        <div class="fert-timeline">
+            {% for f in fert_plan %}
+            <div class="timeline-item" id="fert-step-{{ forloop.counter }}">
+                <div class="timeline-dot"></div>
+                <div class="timeline-content">
+                    <div class="timeline-header">
+                        <div>
+                            <h4 class="timeline-title">{{ f.fertilizer_name }}</h4>
+                            {% if f.crop_age_or_stage %}
+                            <span class="timeline-age-badge">{{ f.crop_age_or_stage }}</span>
+                            {% endif %}
+                        </div>
+                        <span class="timeline-stage badge">{{ f.application_stage }}</span>
+                    </div>
+                    <div class="timeline-details">
+                        <div class="timeline-detail highlight">
+                            <span class="t-label">Dosage (Area)</span>
+                            <span class="t-value">{{ f.quantity_kg_per_ha }} kg/ha</span>
+                        </div>
+                        {% if f.quantity_per_plant_g %}
+                        <div class="timeline-detail plant-dose">
+                            <span class="t-label">Per Palm / Tree</span>
+                            <span class="t-value font-bold text-success">{{ f.quantity_per_plant_g }} g / plant</span>
+                        </div>
+                        {% endif %}
+                        <div class="timeline-detail">
+                            <span class="t-label">Scheduled Date</span>
+                            <span class="t-value">{{ f.recommended_date }}</span>
+                        </div>
+                        <div class="timeline-detail">
+                            <span class="t-label">Est. Cost</span>
+                            <span class="t-value">₹{{ f.cost_per_ha|floatformat:0 }}/ha</span>
+                        </div>
+                        {% if f.n_delivered %}
+                        <div class="timeline-detail">
+                            <span class="t-label">N (kg/ha)</span>
+                            <span class="t-value">{{ f.n_delivered }}</span>
+                        </div>
+                        {% endif %}
+                        {% if f.p_delivered %}
+                        <div class="timeline-detail">
+                            <span class="t-label">P₂O₅ (kg/ha)</span>
+                            <span class="t-value">{{ f.p_delivered }}</span>
+                        </div>
+                        {% endif %}
+                        {% if f.k_delivered %}
+                        <div class="timeline-detail">
+                            <span class="t-label">K₂O (kg/ha)</span>
+                            <span class="t-value">{{ f.k_delivered }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if f.notes %}
+                    <div class="timeline-notes">
+                        <span class="note-icon">💡</span> {{ f.notes }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Crop Suggestions Section -->
+    <section class="result-section" id="crop-section">
+        <h2 class="section-title">🌾 Crop Suitability Rankings</h2>
+        <p class="section-subtitle">Ranked by suitability score across Field &amp; Plantation crops</p>
+
+        <div class="crop-cards-grid">
+            {% for crop in crop_suggestions %}
+            <div class="crop-card {% if crop.crop_name == target_crop %}selected-pick{% elif forloop.first %}top-pick{% endif %}" id="crop-{{ forloop.counter }}">
+                {% if crop.crop_name == target_crop %}
+                <div class="top-pick-badge active-crop-badge">✓ Active Target Crop</div>
+                {% elif forloop.first %}
+                <div class="top-pick-badge">🏆 Top Recommendation</div>
+                {% endif %}
+                <div class="crop-header">
+                    <h3 class="crop-name">{{ crop.crop_name }}</h3>
+                    <span class="crop-category badge-{{ crop.crop_type }}">{{ crop.category }}</span>
+                </div>
+                <div class="crop-score">
+                    <div class="score-ring" data-score="{{ crop.suitability_score }}">
+                        <svg viewBox="0 0 36 36">
+                            <path class="score-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="score-fill" stroke-dasharray="{{ crop.suitability_score }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        </svg>
+                        <span class="score-text">{{ crop.suitability_score }}%</span>
+                    </div>
+                </div>
+                <div class="crop-details">
+                    <div class="crop-detail-item">
+                        <span class="detail-label">Expected Yield</span>
+                        <span class="detail-value">{{ crop.expected_yield }} t/ha</span>
+                    </div>
+                    <div class="crop-detail-item">
+                        <span class="detail-label">Type / Duration</span>
+                        <span class="detail-value">{{ crop.category }} / {{ crop.duration_days }}d</span>
+                    </div>
+                    <div class="crop-detail-item">
+                        <span class="detail-label">Adult N-P-K Need</span>
+                        <span class="detail-value">{{ crop.n_requirement }}-{{ crop.p_requirement }}-{{ crop.k_requirement }}</span>
+                    </div>
+                    {% if crop.potential_revenue %}
+                    <div class="crop-detail-item revenue">
+                        <span class="detail-label">Potential Revenue</span>
+                        <span class="detail-value">₹{{ crop.potential_revenue|floatformat:0 }}/ha</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <p class="crop-reason">{{ crop.reason }}</p>
+                <a href="?crop={{ crop.crop_name }}{% if crop_age_years %}&age={{ crop_age_years }}{% endif %}{% if growth_stage %}&stage={{ growth_stage }}{% endif %}" class="btn btn-sm {% if crop.crop_name == target_crop %}btn-primary{% else %}btn-outline{% endif %}" id="select-crop-{{ forloop.counter }}">
+                    {% if crop.crop_name == target_crop %}✓ Current Plan{% else %}Switch to this Crop{% endif %}
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Derivatives Section -->
+    <section class="result-section" id="derivatives-section">
+        <h2 class="section-title">📊 Derivative Demand Forecasts</h2>
+        <p class="section-subtitle">Multi-tier cascading agricultural demand signals derived for {{ target_crop }} ({{ soil_test.area_hectares }} ha)</p>
+
+        <div class="derivatives-grid">
+            <!-- Crop Yield -->
+            {% if derivatives.crop_yield %}
+            <div class="derivative-card yield-card" id="deriv-yield">
+                <div class="deriv-header">
+                    <span class="deriv-icon">🌾</span>
+                    <h3>{{ derivatives.crop_yield.title }}</h3>
+                </div>
+                <div class="deriv-value-container">
+                    <span class="deriv-value">{{ derivatives.crop_yield.value }}</span>
+                    <span class="deriv-unit">{{ derivatives.crop_yield.unit }}</span>
+                </div>
+                <div class="deriv-confidence">
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: {{ derivatives.crop_yield.confidence }}%"></div>
+                    </div>
+                    <span class="confidence-text">{{ derivatives.crop_yield.confidence }}% confidence</span>
+                </div>
+                <p class="deriv-details">{{ derivatives.crop_yield.details }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Fertilizer Demand -->
+            {% if derivatives.fertilizer_demand %}
+            <div class="derivative-card demand-card" id="deriv-fert">
+                <div class="deriv-header">
+                    <span class="deriv-icon">💊</span>
+                    <h3>{{ derivatives.fertilizer_demand.title }}</h3>
+                </div>
+                <div class="deriv-value-container">
+                    <span class="deriv-value">{{ derivatives.fertilizer_demand.value }}</span>
+                    <span class="deriv-unit">{{ derivatives.fertilizer_demand.unit }}</span>
+                </div>
+                <div class="deriv-cost">Total Estimated Cost: ₹{{ derivatives.fertilizer_demand.cost|floatformat:0 }}</div>
+                <div class="deriv-confidence">
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: {{ derivatives.fertilizer_demand.confidence }}%"></div>
+                    </div>
+                    <span class="confidence-text">{{ derivatives.fertilizer_demand.confidence }}% confidence</span>
+                </div>
+                {% if derivatives.fertilizer_demand.breakdown %}
+                <div class="deriv-breakdown">
+                    <h4>Required Inputs:</h4>
+                    {% for item in derivatives.fertilizer_demand.breakdown %}
+                    <div class="breakdown-item">
+                        <span class="breakdown-name">{{ item.name }}</span>
+                        <span class="breakdown-val">{{ item.quantity }} kg — ₹{{ item.cost|floatformat:0 }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Equipment Demand -->
+            {% if derivatives.equipment_demand %}
+            <div class="derivative-card equip-card" id="deriv-equip">
+                <div class="deriv-header">
+                    <span class="deriv-icon">🚜</span>
+                    <h3>{{ derivatives.equipment_demand.title }}</h3>
+                </div>
+                {% for item in derivatives.equipment_demand.items %}
+                <div class="equip-item">
+                    <span class="equip-name">{{ item.item }}</span>
+                    <span class="equip-val">{{ item.quantity }} {{ item.unit }}</span>
+                </div>
+                {% endfor %}
+                <div class="deriv-confidence">
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: {{ derivatives.equipment_demand.confidence }}%"></div>
+                    </div>
+                    <span class="confidence-text">{{ derivatives.equipment_demand.confidence }}% confidence</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Labor Demand -->
+            {% if derivatives.labor_demand %}
+            <div class="derivative-card labor-card" id="deriv-labor">
+                <div class="deriv-header">
+                    <span class="deriv-icon">👷</span>
+                    <h3>{{ derivatives.labor_demand.title }}</h3>
+                </div>
+                <div class="deriv-value-container">
+                    <span class="deriv-value">{{ derivatives.labor_demand.total_labor_days|floatformat:0 }}</span>
+                    <span class="deriv-unit">person-days</span>
+                </div>
+                <div class="deriv-cost">Total Labor Cost: ₹{{ derivatives.labor_demand.total_cost|floatformat:0 }}</div>
+                {% for act in derivatives.labor_demand.activities %}
+                <div class="labor-activity">
+                    <span class="activity-name">{{ act.activity }}</span>
+                    <div class="activity-bar-container">
+                        <div class="activity-bar" style="width: {% widthratio act.days derivatives.labor_demand.total_labor_days 100 %}%"></div>
+                    </div>
+                    <span class="activity-days">{{ act.days }} days</span>
+                </div>
+                {% endfor %}
+                <div class="deriv-confidence">
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: {{ derivatives.labor_demand.confidence }}%"></div>
+                    </div>
+                    <span class="confidence-text">{{ derivatives.labor_demand.confidence }}% confidence</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Sub-derivatives -->
+            {% if derivatives.sub_derivatives %}
+            <div class="derivative-card sub-card" id="deriv-sub">
+                <div class="deriv-header">
+                    <span class="deriv-icon">📦</span>
+                    <h3>{{ derivatives.sub_derivatives.title }}</h3>
+                </div>
+                {% for item in derivatives.sub_derivatives.items %}
+                <div class="sub-item">
+                    <span class="sub-name">{{ item.item }}</span>
+                    <span class="sub-val">{{ item.value|floatformat:1 }} {{ item.unit }}</span>
+                </div>
+                {% endfor %}
+                <div class="deriv-confidence">
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: {{ derivatives.sub_derivatives.confidence }}%"></div>
+                    </div>
+                    <span class="confidence-text">{{ derivatives.sub_derivatives.confidence }}% confidence</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Actions -->
+    <section class="result-actions">
+        <a href="{% url 'soil_engine:soil_input' %}" class="btn btn-primary btn-lg" id="new-analysis-btn">🧪 New Soil / Geo Analysis</a>
+        <a href="{% url 'soil_engine:soil_test_list' %}" class="btn btn-outline btn-lg" id="view-tests-btn">📋 All Test Records</a>
+        <a href="{% url 'soil_engine:dashboard' %}" class="btn btn-secondary btn-lg" id="back-dashboard-btn">📊 Dashboard</a>
+    </section>
+</div>
+
+<script>
+    function toggleSimInputs(cropName) {
+        const select = document.getElementById('sim-crop-select');
+        const selectedOption = select.options[select.selectedIndex];
+        const cropType = selectedOption.getAttribute('data-type');
+        const ageGroup = document.getElementById('sim-age-group');
+        const stageGroup = document.getElementById('sim-stage-group');
+
+        if (cropType === 'plantation') {
+            ageGroup.style.display = 'block';
+            stageGroup.style.display = 'none';
+        } else {
+            ageGroup.style.display = 'none';
+            stageGroup.style.display = 'block';
+        }
+    }
+</script>
+{% endblock %}

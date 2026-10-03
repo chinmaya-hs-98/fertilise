@@ -1,0 +1,189 @@
+{% extends 'soil_engine/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                <span class="hero-icon">🌱</span>
+                Soil Engine
+            </h1>
+            <p class="hero-subtitle">
+                Intelligent crop & fertilization recommendations powered by Indian agronomic standards
+            </p>
+            <div class="hero-actions">
+                <a href="{% url 'soil_engine:soil_input' %}" class="btn btn-primary btn-lg" id="new-analysis-btn">
+                    🧪 Start New Analysis
+                </a>
+                <a href="{% url 'soil_engine:soil_test_list' %}" class="btn btn-secondary btn-lg" id="view-tests-btn">
+                    📋 View All Tests
+                </a>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="flow-diagram">
+                <div class="flow-node input-node" id="flow-soil">
+                    <span class="flow-icon">🧪</span>
+                    <span class="flow-label">Soil Test Data</span>
+                </div>
+                <div class="flow-node input-node" id="flow-weather">
+                    <span class="flow-icon">🌦️</span>
+                    <span class="flow-label">Weather Data</span>
+                </div>
+                <div class="flow-node input-node" id="flow-history">
+                    <span class="flow-icon">📜</span>
+                    <span class="flow-label">Fertilization History</span>
+                </div>
+                <div class="flow-arrows">
+                    <div class="flow-arrow"></div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-arrow"></div>
+                </div>
+                <div class="flow-node engine-node" id="flow-engine">
+                    <span class="flow-icon">⚙️</span>
+                    <span class="flow-label">Soil Engine</span>
+                </div>
+                <div class="flow-arrows-out">
+                    <div class="flow-arrow"></div>
+                    <div class="flow-arrow"></div>
+                </div>
+                <div class="flow-node output-node" id="flow-crops">
+                    <span class="flow-icon">🌾</span>
+                    <span class="flow-label">Crop Suggestions</span>
+                </div>
+                <div class="flow-node output-node" id="flow-fert">
+                    <span class="flow-icon">💊</span>
+                    <span class="flow-label">Fertilization Cycle</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Cards -->
+    <section class="stats-section">
+        <div class="stats-grid">
+            <div class="stat-card" id="stat-tests">
+                <div class="stat-icon">🧪</div>
+                <div class="stat-value">{{ total_tests }}</div>
+                <div class="stat-label">Soil Tests</div>
+            </div>
+            <div class="stat-card" id="stat-suggestions">
+                <div class="stat-icon">🌾</div>
+                <div class="stat-value">{{ total_suggestions }}</div>
+                <div class="stat-label">Crop Suggestions</div>
+            </div>
+            <div class="stat-card" id="stat-cycles">
+                <div class="stat-icon">💊</div>
+                <div class="stat-value">{{ total_cycles }}</div>
+                <div class="stat-label">Fertilization Plans</div>
+            </div>
+            <div class="stat-card" id="stat-crops">
+                <div class="stat-icon">📦</div>
+                <div class="stat-value">20+</div>
+                <div class="stat-label">Crops in Database</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-it-works">
+        <h2 class="section-title">How It Works</h2>
+        <div class="steps-grid">
+            <div class="step-card">
+                <div class="step-number">1</div>
+                <div class="step-icon">🧪</div>
+                <h3>Input Soil Data</h3>
+                <p>Enter your soil test results — N, P, K, pH, organic carbon, micronutrients, and soil type.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">2</div>
+                <div class="step-icon">🌦️</div>
+                <h3>Add Weather Info</h3>
+                <p>Provide current weather conditions — temperature, rainfall, humidity, and season.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">3</div>
+                <div class="step-icon">📜</div>
+                <h3>Fertilization History</h3>
+                <p>Optionally add past fertilizer applications for more accurate recommendations.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">4</div>
+                <div class="step-icon">⚙️</div>
+                <h3>Engine Analyzes</h3>
+                <p>The Soil Engine processes all inputs using ICAR-based agronomic algorithms.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">5</div>
+                <div class="step-icon">🌾</div>
+                <h3>Get Suggestions</h3>
+                <p>Receive crop recommendations with suitability scores and yield estimates.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">6</div>
+                <div class="step-icon">📊</div>
+                <h3>Demand Forecasts</h3>
+                <p>View derivative forecasts — equipment, labor, seed, and logistics demands.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Recent Tests -->
+    {% if recent_tests %}
+    <section class="recent-section">
+        <h2 class="section-title">Recent Soil Tests</h2>
+        <div class="table-container">
+            <table class="data-table" id="recent-tests-table">
+                <thead>
+                    <tr>
+                        <th>Sample ID</th>
+                        <th>Location</th>
+                        <th>Soil Type</th>
+                        <th>pH</th>
+                        <th>N (kg/ha)</th>
+                        <th>P (kg/ha)</th>
+                        <th>K (kg/ha)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for test in recent_tests %}
+                    <tr>
+                        <td class="sample-id">{{ test.sample_id }}</td>
+                        <td>{{ test.location }}</td>
+                        <td>
+                            <span class="badge badge-soil">{{ test.get_soil_type_display }}</span>
+                        </td>
+                        <td>
+                            <span class="badge badge-{{ test.get_ph_status }}">{{ test.ph }}</span>
+                        </td>
+                        <td>
+                            <span class="nutrient-value {{ test.get_n_status }}">{{ test.nitrogen }}</span>
+                        </td>
+                        <td>
+                            <span class="nutrient-value {{ test.get_p_status }}">{{ test.phosphorus }}</span>
+                        </td>
+                        <td>
+                            <span class="nutrient-value {{ test.get_k_status }}">{{ test.potassium }}</span>
+                        </td>
+                        <td>
+                            <a href="{% url 'soil_engine:weather_input' test.id %}" class="btn btn-sm btn-primary" id="analyze-{{ test.id }}">
+                                Full Analysis →
+                            </a>
+                            <a href="{% url 'soil_engine:analyze' test.id %}" class="btn btn-sm btn-secondary" id="quick-{{ test.id }}">
+                                Quick Analyze
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
